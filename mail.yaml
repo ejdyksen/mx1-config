@@ -1,0 +1,131 @@
+---
+Description: A mail server setup
+Resources:
+  MailServer:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default:
+          - install_cfn
+          - utilities
+          - postfix
+          - spamassassin
+          - dns
+
+        install_cfn:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+                interval=1
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.MailServer.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
+                runas=root
+
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/cfn/cfn-hup.conf
+                - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+
+        utilities:
+          packages:
+            yum:
+              htop: []
+
+        postfix:
+          packages:
+            yum:
+              postfix: []
+          files:
+            /etc/postfix/transport:
+              content: |
+                dyksen.net          smtp:mail.dyksen.net:26
+                downstairslabs.com  smtp:mail.dyksen.net:26
+                greenteam.io        smtp:mail.dyksen.net:26
+                api.travel.greenteam.tech.msu.edu smtp:mail.dyksen.net:26
+
+            /tmp/postfix_main_append:
+              content: |
+                myhostname = mx1.dyksen.net
+                myorigin = $mydomain
+                inet_interfaces = all
+                mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+                relay_domains = dyksen.net, downstairslabs.com
+                relayhost = mail.dyksen.net:26
+
+          commands:
+            remove_sendmail:
+              command: yum remove -y sendmail && alternatives --set mta /usr/sbin/sendmail.postfix
+            # configure_postfix_and_spamassassin:
+            #   command: awk '/smtp      inet/ { print; print "   -o content_filter=spamassassin"; next}1' /etc/postfix/master.cf > /etc/postfix/master.cf && service postfix restart
+            configure_postfix:
+              command: cat /tmp/postfix_main_append >> /etc/postfix/main.cf
+
+          services:
+            sysvinit:
+              postfix:
+                enabled: true
+                ensureRunning: true
+
+        spamassassin:
+          packages:
+            yum:
+              spamassassin: []
+          services:
+            sysvinit:
+              spamassassin:
+                enabled: true
+                ensureRunning: true
+
+
+        dns:
+          packages:
+            yum:
+              bind: []
+              bind-utils: []
+          services:
+            sysvinit:
+              named:
+                enabled: true
+                ensureRunning: true
+
+
+    Properties:
+      ImageId: ami-58277d3d
+      InstanceType: m4.large
+      SecurityGroups:
+      - !Ref MailSecurityGroup
+      KeyName: ejd
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -ex
+          yum update -y aws-cfn-bootstrap
+
+          /opt/aws/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
+
+          /opt/aws/bin/cfn-signal --exit-code $? --resource MailServer --stack ${AWS::StackName} --resource MailServer --region ${AWS::Region}
+
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT30M
+
+  MailSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
