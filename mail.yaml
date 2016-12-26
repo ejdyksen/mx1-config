@@ -39,6 +39,11 @@ Resources:
                 - /etc/cfn/hooks.d/cfn-auto-reloader.conf
 
         utilities:
+          files:
+            /home/ec2-user/.aws/config:
+              content: |
+                [default]
+                region = us-east-2
           packages:
             yum:
               htop: []
@@ -57,7 +62,7 @@ Resources:
 
             /tmp/postfix_main_append:
               content: |
-                myhostname = mx1.dyksen.net
+                myhostname = mx2.dyksen.net
                 myorigin = $mydomain
                 inet_interfaces = all
                 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
@@ -71,6 +76,8 @@ Resources:
             #   command: awk '/smtp      inet/ { print; print "   -o content_filter=spamassassin"; next}1' /etc/postfix/master.cf > /etc/postfix/master.cf && service postfix restart
             configure_postfix:
               command: cat /tmp/postfix_main_append >> /etc/postfix/main.cf
+            postmap:
+              command: postmap /etc/postfix/transport
 
           services:
             sysvinit:
@@ -106,11 +113,12 @@ Resources:
       InstanceType: m4.large
       SecurityGroups:
       - !Ref MailSecurityGroup
+      IamInstanceProfile: !Ref MailServerInstanceProfile
       KeyName: ejd
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -ex
-          yum update -y aws-cfn-bootstrap
+          yum update -y
 
           /opt/aws/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
 
@@ -120,6 +128,47 @@ Resources:
       ResourceSignal:
         Timeout: PT30M
 
+  VpcIPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref MailServer
+      AllocationId: 'eipalloc-c5d11cac'
+
+  MailServerInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref MailServerRole
+
+  MailServerRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: '/'
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "s3:*"
+                Resource:
+                  - "arn:aws:s3:::ejdyksen-spam"
+                  - "arn:aws:s3:::ejdyksen-spam/*"
+
   MailSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -128,4 +177,8 @@ Resources:
       - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '25'
+        ToPort: '25'
         CidrIp: 0.0.0.0/0
