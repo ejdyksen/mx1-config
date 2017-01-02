@@ -44,9 +44,15 @@ Resources:
               content: |
                 [default]
                 region = us-east-2
+            /root/.aws/config:
+              content: |
+                [default]
+                region = us-east-2
           packages:
             yum:
+              telnet: []
               htop: []
+              jq: []
 
         postfix:
           packages:
@@ -62,7 +68,7 @@ Resources:
 
             /tmp/postfix_main_append:
               content: |
-                myhostname = mx2.dyksen.net
+                myhostname = mx1.dyksen.net
                 myorigin = $mydomain
                 inet_interfaces = all
                 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
@@ -72,8 +78,8 @@ Resources:
           commands:
             remove_sendmail:
               command: yum remove -y sendmail && alternatives --set mta /usr/sbin/sendmail.postfix
-            # configure_postfix_and_spamassassin:
-            #   command: awk '/smtp      inet/ { print; print "   -o content_filter=spamassassin"; next}1' /etc/postfix/master.cf > /etc/postfix/master.cf && service postfix restart
+            configure_postfix_and_spamassassin:
+              command: sed -i 's/smtp      inet  n       -       n       -       -       smtpd/smtp      inet  n       -       n       -       -       smtpd\n   -o content_filter=spamassassin/' /etc/postfix/master.cf
             configure_postfix:
               command: cat /tmp/postfix_main_append >> /etc/postfix/main.cf
             postmap:
@@ -90,19 +96,34 @@ Resources:
             yum:
               spamassassin: []
           files:
-            /etc/cron.daily/backup-spamassassin.sh:
+            /etc/cron.daily/backup-spamassassin:
+              mode: '000755'
               content: |
                 #!/usr/bin/env bash
                 cd /tmp
-
-                now=`date +"%m_%d_%Y"`
+                now=`date -u +%FT%T`Z
                 filename=sa-learn-backup-$now.txt
-
                 sa-learn --backup > $filename
-
-                aws s3 cp $filename s3://ejdyksen-spam/sa-backup/$filename --region us-east-2 --storage-class STANDARD_IA
-
+                backup_size=`du -k "$filename" | cut -f1`
+                if [ $backup_size -gt 2000 ]
+                then
+                  aws s3 cp $filename s3://ejdyksen-spam/sa-backup/$filename --storage-class STANDARD_IA
+                fi
                 rm -f $filename
+            /usr/local/bin/restore-spamassassin:
+              mode: '000755'
+              content: |
+                #!/usr/bin/env bash
+                object=s3://ejdyksen-spam/`aws s3api list-objects-v2 --bucket ejdyksen-spam --prefix 'sa-backup/' | jq -r '.Contents | max_by(.Key) | .Key'`
+                aws s3 cp $object restore.txt
+                sa-learn --restore restore.txt
+                rm -f restore.txt
+
+          commands:
+            restore_from_backup:
+              cwd: /tmp
+              command: /usr/local/bin/restore-spamassassin
+
           services:
             sysvinit:
               spamassassin:
