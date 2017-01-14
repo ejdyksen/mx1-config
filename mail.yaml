@@ -63,26 +63,15 @@ Resources:
               content: |
                 dyksen.net          smtp:mail.dyksen.net:26
                 downstairslabs.com  smtp:mail.dyksen.net:26
-                greenteam.io        smtp:mail.dyksen.net:26
-                api.travel.greenteam.tech.msu.edu smtp:mail.dyksen.net:26
-
-            /tmp/postfix_main_append:
-              content: |
-                myhostname = mx1.dyksen.net
-                myorigin = $mydomain
-                inet_interfaces = all
-                mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
-                relay_domains = dyksen.net, downstairslabs.com
-                relayhost = mail.dyksen.net:26
 
           commands:
-            remove_sendmail:
+            01_remove_sendmail:
               command: yum remove -y sendmail && alternatives --set mta /usr/sbin/sendmail.postfix
-            configure_postfix_and_spamassassin:
-              command: sed -i 's/smtp      inet  n       -       n       -       -       smtpd/smtp      inet  n       -       n       -       -       smtpd\n   -o content_filter=spamassassin/' /etc/postfix/master.cf
-            configure_postfix:
-              command: cat /tmp/postfix_main_append >> /etc/postfix/main.cf
-            postmap:
+            02_postfix_main:
+              command: postconf -e "myhostname = mx1.dyksen.net" "myorigin = \$mydomain" "inet_interfaces = all" "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128" "relay_domains = dyksen.net, downstairslabs.com" "relayhost = mail.dyksen.net:26"
+            03_postfix_master:
+              command: sudo postconf -P "smtp/inet/content_filter=spamassassin"
+            04_postmap:
               command: postmap /etc/postfix/transport
 
           services:
