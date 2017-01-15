@@ -41,7 +41,7 @@ Resources:
 
         utilities:
           files:
-            /home/ec2-user/.aws/config:
+            /home/ubuntu/.aws/config:
               content: |
                 [default]
                 region = us-east-2
