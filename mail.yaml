@@ -138,7 +138,7 @@ Resources:
                 bayes_file_mode 0666
 
                 dns_server 127.0.0.1
-            /etc/cron.daily/backup-spamassassin:
+            /etc/cron.hourly/backup-spamassassin:
               mode: '000755'
               content: |
                 #!/usr/bin/env bash
