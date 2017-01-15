@@ -8,6 +8,7 @@ Resources:
         configSets:
           default:
           - configure_aws
+          - unattended_upgrades
           - hostname
           - shell
           - dns
@@ -45,6 +46,16 @@ Resources:
                 files:
                 - /etc/cfn/cfn-hup.conf
                 - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+
+
+        unattended_upgrades:
+          packages:
+            apt:
+              unattended-upgrades: []
+          commands:
+            allow_reboot:
+              command: echo -n "Unattended-Upgrade::Automatic-Reboot \"true\";" >> /etc/apt/apt.conf.d/50unattended-upgrades
+
 
         hostname:
           files:
