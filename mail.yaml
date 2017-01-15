@@ -38,6 +38,7 @@ Resources:
                 - /etc/cfn/cfn-hup.conf
                 - /etc/cfn/hooks.d/cfn-auto-reloader.conf
 
+
         utilities:
           files:
             /home/ec2-user/.aws/config:
@@ -49,42 +50,88 @@ Resources:
                 [default]
                 region = us-east-2
           packages:
-            yum:
+            apt:
+              zsh: []
               telnet: []
               htop: []
               jq: []
+          commands:
+            01_zprezto:
+              command: sudo -u ubuntu git clone --recursive git://github.com/ejdyksen/prezto.git /home/ubuntu/.zprezto
+              test: "! [ -d /home/ubuntu/.zprezto ]"
+            02_dotfiles:
+              command: sudo -u ubuntu git clone git://github.com/ejdyksen/dotfiles.git /home/ubuntu/.dotfiles
+              test: "! [ -d /home/ubuntu/.dotfiles ]"
+            03_dotfiles_install:
+              command: sudo -u ubuntu bash /home/ubuntu/.dotfiles/install.sh
+            04_chsh:
+              command: chsh -s /usr/bin/zsh ubuntu
+
 
         postfix:
           packages:
-            yum:
+            apt:
               postfix: []
           files:
             /etc/postfix/transport:
               content: |
                 dyksen.net          smtp:mail.dyksen.net:26
                 downstairslabs.com  smtp:mail.dyksen.net:26
-
           commands:
-            01_remove_sendmail:
-              command: yum remove -y sendmail && alternatives --set mta /usr/sbin/sendmail.postfix
-            02_postfix_main:
+            01_postfix_main:
               command: postconf -e "myhostname = mx1.dyksen.net" "myorigin = \$mydomain" "inet_interfaces = all" "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128" "relay_domains = dyksen.net, downstairslabs.com" "relayhost = mail.dyksen.net:26"
-            03_postfix_master:
-              command: sudo postconf -P "smtp/inet/content_filter=spamassassin"
-            04_postmap:
+            02_postmap:
               command: postmap /etc/postfix/transport
-
+            03_reload:
+              command: postfix reload
           services:
             sysvinit:
               postfix:
                 enabled: true
                 ensureRunning: true
 
+
         spamassassin:
           packages:
-            yum:
+            apt:
               spamassassin: []
           files:
+            /usr/local/bin/spamfilter.sh:
+              mode: '000755'
+              content: |
+                #!/usr/bin/env bash
+
+                SENDMAIL=/usr/sbin/sendmail
+                SPAMASSASSIN=/usr/bin/spamc
+
+                logger <<<"Spam filter piping to SpamAssassin, then to: $SENDMAIL $@"
+                ${SPAMASSASSIN} | ${SENDMAIL} "$@"
+
+                exit $?
+            /etc/spamassassin/local.cf:
+              mode: '000644'
+              content: |
+                # This is the right place to customize your installation of SpamAssassin.
+                #
+                # See 'perldoc Mail::SpamAssassin::Conf' for details of what can be
+                # tweaked.
+                #
+                # Only a small subset of options are listed below
+                #
+                ###########################################################################
+
+                use_bayes 1
+                required_score 3.0
+
+                bayes_auto_learn 1
+
+                bayes_auto_learn_threshold_spam         8.0
+                bayes_auto_learn_threshold_nonspam      -1.0
+
+                bayes_path /var/spamassassin/bayes_db/bayes
+                bayes_file_mode 0666
+
+                dns_server 127.0.0.1
             /etc/cron.daily/backup-spamassassin:
               mode: '000755'
               content: |
@@ -107,12 +154,20 @@ Resources:
                 aws s3 cp $object restore.txt
                 sa-learn --restore restore.txt
                 rm -f restore.txt
-
           commands:
-            restore_from_backup:
-              cwd: /tmp
+            01_restore_from_backup:
               command: /usr/local/bin/restore-spamassassin
-
+              cwd: /tmp
+            02_setup_content_filter:
+              command: postconf -P "smtp/inet/content_filter=spamf"
+            03_setup_spamfilter_transport:
+              command: echo -n "spamf     unix  -       n       n       -       -       pipe\n  user=debian-spamd argv=/usr/bin/spamc -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}" >> /etc/postfix/master.cf
+            04_enable_spamassassin:
+              command: sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/spamassassin
+            05_enable_spamassassin_cron:
+              command: sed -i 's/CRON=0/CRON=1/g' /etc/default/spamassassin
+            06_reload_postfix:
+              command: postfix reload
           services:
             sysvinit:
               spamassassin:
@@ -122,19 +177,19 @@ Resources:
 
         dns:
           packages:
-            yum:
-              bind: []
-              bind-utils: []
+            apt:
+              bind9: []
+              bind9utils: []
           services:
             sysvinit:
-              named:
+              bind9:
                 enabled: true
                 ensureRunning: true
 
 
     Properties:
-      ImageId: ami-58277d3d
-      InstanceType: m4.large
+      ImageId: ami-d1cb91b4
+      InstanceType: t2.micro
       SecurityGroups:
       - !Ref MailSecurityGroup
       IamInstanceProfile: !Ref MailServerInstanceProfile
@@ -142,11 +197,21 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -ex
-          yum update -y
+          apt-get update
+          apt-get -y install python-pip
+          pip install --upgrade pip
+          pip install awscli
+          pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+          cp /usr/local/init/ubuntu/cfn-hup /etc/init.d/cfn-hup
+          chmod +x /etc/init.d/cfn-hup
+          update-rc.d cfn-hup defaults
+          service cfn-hup start
 
-          /opt/aws/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
+          /usr/local/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
 
-          /opt/aws/bin/cfn-signal --exit-code $? --resource MailServer --stack ${AWS::StackName} --resource MailServer --region ${AWS::Region}
+          /usr/local/bin/cfn-signal --exit-code $? --resource MailServer --stack ${AWS::StackName} --resource MailServer --region ${AWS::Region}
+
+          apt-get -y upgrade
 
     CreationPolicy:
       ResourceSignal:
