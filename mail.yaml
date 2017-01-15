@@ -49,6 +49,8 @@ Resources:
               content: |
                 [default]
                 region = us-east-2
+            /etc/hostname:
+              content: mx1.dyksen.net
           packages:
             apt:
               zsh: []
@@ -56,15 +58,17 @@ Resources:
               htop: []
               jq: []
           commands:
-            01_zprezto:
+            01_hostname:
+              command: hostname mx1.dyksen.net
+            02_zprezto:
               command: sudo -u ubuntu git clone --recursive git://github.com/ejdyksen/prezto.git /home/ubuntu/.zprezto
               test: "! [ -d /home/ubuntu/.zprezto ]"
-            02_dotfiles:
+            03_dotfiles:
               command: sudo -u ubuntu git clone git://github.com/ejdyksen/dotfiles.git /home/ubuntu/.dotfiles
               test: "! [ -d /home/ubuntu/.dotfiles ]"
-            03_dotfiles_install:
+            04_dotfiles_install:
               command: sudo -u ubuntu bash /home/ubuntu/.dotfiles/install.sh
-            04_chsh:
+            05_chsh:
               command: chsh -s /usr/bin/zsh ubuntu
 
 
@@ -189,7 +193,8 @@ Resources:
 
     Properties:
       ImageId: ami-d1cb91b4
-      InstanceType: t2.micro
+      InstanceType: t2.nano
+      AvailabilityZone: us-east-2a
       SecurityGroups:
       - !Ref MailSecurityGroup
       IamInstanceProfile: !Ref MailServerInstanceProfile
@@ -212,6 +217,8 @@ Resources:
           /usr/local/bin/cfn-signal --exit-code $? --resource MailServer --stack ${AWS::StackName} --resource MailServer --region ${AWS::Region}
 
           apt-get -y upgrade
+          apt-get -y dist-upgrade
+          reboot
 
     CreationPolicy:
       ResourceSignal:
