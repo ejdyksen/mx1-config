@@ -99,6 +99,8 @@ Resources:
           packages:
             apt:
               spamassassin: []
+              pyzor: []
+              razor: []
           files:
             /usr/local/bin/spamfilter.sh:
               mode: '000755'
