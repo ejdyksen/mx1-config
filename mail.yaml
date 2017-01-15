@@ -7,14 +7,23 @@ Resources:
       AWS::CloudFormation::Init:
         configSets:
           default:
-          - install_cfn
-          - utilities
+          - configure_aws
+          - hostname
+          - shell
+          - dns
           - postfix
           - spamassassin
-          - dns
 
-        install_cfn:
+        configure_aws:
           files:
+            /home/ubuntu/.aws/config:
+              content: |
+                [default]
+                region = us-east-2
+            /root/.aws/config:
+              content: |
+                [default]
+                region = us-east-2
             /etc/cfn/cfn-hup.conf:
               content: !Sub |
                 [main]
@@ -28,7 +37,6 @@ Resources:
                 path=Resources.MailServer.Metadata.AWS::CloudFormation::Init
                 action=/opt/aws/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
                 runas=root
-
           services:
             sysvinit:
               cfn-hup:
@@ -38,44 +46,50 @@ Resources:
                 - /etc/cfn/cfn-hup.conf
                 - /etc/cfn/hooks.d/cfn-auto-reloader.conf
 
-
-        utilities:
+        hostname:
           files:
-            /home/ubuntu/.aws/config:
-              content: |
-                [default]
-                region = us-east-2
-            /root/.aws/config:
-              content: |
-                [default]
-                region = us-east-2
             /etc/hostname:
               content: mx1.dyksen.net
+          commands:
+            hostname:
+              command: hostname mx1.dyksen.net
+
+
+        shell:
           packages:
             apt:
               zsh: []
-              telnet: []
               htop: []
-              jq: []
           commands:
-            01_hostname:
-              command: hostname mx1.dyksen.net
-            02_zprezto:
+            01_zprezto:
               command: sudo -u ubuntu git clone --recursive git://github.com/ejdyksen/prezto.git /home/ubuntu/.zprezto
               test: "! [ -d /home/ubuntu/.zprezto ]"
-            03_dotfiles:
+            02_dotfiles:
               command: sudo -u ubuntu git clone git://github.com/ejdyksen/dotfiles.git /home/ubuntu/.dotfiles
               test: "! [ -d /home/ubuntu/.dotfiles ]"
-            04_dotfiles_install:
+            03_dotfiles_install:
               command: sudo -u ubuntu bash /home/ubuntu/.dotfiles/install.sh
-            05_chsh:
+            04_chsh:
               command: chsh -s /usr/bin/zsh ubuntu
+
+
+        dns:
+          packages:
+            apt:
+              bind9: []
+              bind9utils: []
+          services:
+            sysvinit:
+              bind9:
+                enabled: true
+                ensureRunning: true
 
 
         postfix:
           packages:
             apt:
               postfix: []
+              telnet: []
           files:
             /etc/postfix/transport:
               content: |
@@ -99,6 +113,7 @@ Resources:
           packages:
             apt:
               spamassassin: []
+              jq: []
               pyzor: []
               razor: []
           files:
@@ -179,18 +194,6 @@ Resources:
           services:
             sysvinit:
               spamassassin:
-                enabled: true
-                ensureRunning: true
-
-
-        dns:
-          packages:
-            apt:
-              bind9: []
-              bind9utils: []
-          services:
-            sysvinit:
-              bind9:
                 enabled: true
                 ensureRunning: true
 
