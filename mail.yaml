@@ -135,7 +135,7 @@ Resources:
                 bayes_auto_learn_threshold_nonspam      -1.0
 
                 bayes_path /var/spamassassin/bayes_db/bayes
-                bayes_file_mode 0666
+                bayes_file_mode 0777
 
                 dns_server 127.0.0.1
             /etc/cron.hourly/backup-spamassassin:
@@ -158,21 +158,23 @@ Resources:
                 #!/usr/bin/env bash
                 object=s3://ejdyksen-spam/`aws s3api list-objects-v2 --bucket ejdyksen-spam --prefix 'sa-backup/' | jq -r '.Contents | max_by(.Key) | .Key'`
                 aws s3 cp $object restore.txt
-                sa-learn --restore restore.txt
+                sudo -u debian-spamd sa-learn --restore restore.txt
                 rm -f restore.txt
           commands:
-            01_restore_from_backup:
+            01_create_bayes_db:
+              command: mkdir /var/spamassassin && chown debian-spamd /var/spamassassin && chgrp debian-spamd /var/spamassassin && chmod 777 /var/spamassassin
+            02_restore_from_backup:
               command: /usr/local/bin/restore-spamassassin
               cwd: /tmp
-            02_setup_content_filter:
+            03_setup_content_filter:
               command: postconf -P "smtp/inet/content_filter=spamf"
-            03_setup_spamfilter_transport:
+            04_setup_spamfilter_transport:
               command: echo -n "spamf     unix  -       n       n       -       -       pipe\n  user=debian-spamd argv=/usr/bin/spamc -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}" >> /etc/postfix/master.cf
-            04_enable_spamassassin:
+            05_enable_spamassassin:
               command: sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/spamassassin
-            05_enable_spamassassin_cron:
+            06_enable_spamassassin_cron:
               command: sed -i 's/CRON=0/CRON=1/g' /etc/default/spamassassin
-            06_reload_postfix:
+            07_reload_postfix:
               command: postfix reload
           services:
             sysvinit:
