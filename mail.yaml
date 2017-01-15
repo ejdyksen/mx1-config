@@ -35,7 +35,7 @@ Resources:
                 [cfn-auto-reloader-hook]
                 triggers=post.update
                 path=Resources.MailServer.Metadata.AWS::CloudFormation::Init
-                action=/opt/aws/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
+                action=/usr/local/bin/cfn-init -v --configsets default --resource MailServer --stack ${AWS::StackName} --region ${AWS::Region}
                 runas=root
           services:
             sysvinit:
