@@ -80,6 +80,7 @@ Resources:
               test: "! [ -d /home/ubuntu/.dotfiles ]"
             03_dotfiles_install:
               command: sudo -u ubuntu bash /home/ubuntu/.dotfiles/install.sh
+              test: "! [ -d /home/ubuntu/.dotfiles ]"
             04_chsh:
               command: chsh -s /usr/bin/zsh ubuntu
 
