@@ -233,6 +233,10 @@ Resources:
       Ipv6Addresses:
       - Ipv6Address: 2600:1f16:6e1:6500::12:1
       KeyName: ejd
+      Tags:
+        -
+          Key: Name
+          Value: mx1
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -ex
