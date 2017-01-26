@@ -298,7 +298,7 @@ Resources:
   MailSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable SSH access
+      GroupDescription: Enable SSH and SMTP
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: '22'
@@ -316,3 +316,7 @@ Resources:
         FromPort: '25'
         ToPort: '25'
         CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '25'
+        ToPort: '25'
+        CidrIpv6: ::/0
