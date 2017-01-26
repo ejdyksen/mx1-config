@@ -180,12 +180,13 @@ Resources:
                 #!/usr/bin/env bash
                 cd /tmp
                 now=`date -u +%FT%T`Z
-                filename=sa-learn-backup-$now.txt
-                sa-learn --backup > $filename
-                backup_size=`du -k "$filename" | cut -f1`
+                filename=sa-learn-backup-$now
+                sa-learn --backup > $filename.txt
+                backup_size=`du -k "$filename.txt" | cut -f1`
                 if [ $backup_size -gt 2000 ]
                 then
-                  aws s3 cp $filename s3://ejdyksen-spam/sa-backup/$filename --storage-class STANDARD_IA
+                  tar --force-local -cJf $filename.tar.xz $filename.txt
+                  aws s3 cp $filename.tar.xz s3://ejdyksen-spam/sa-backup/$filename.tar.xz --storage-class STANDARD_IA
                 fi
                 rm -f $filename
             /usr/local/bin/restore-spamassassin:
@@ -193,9 +194,12 @@ Resources:
               content: |
                 #!/usr/bin/env bash
                 object=s3://ejdyksen-spam/`aws s3api list-objects-v2 --bucket ejdyksen-spam --prefix 'sa-backup/' | jq -r '.Contents | max_by(.Key) | .Key'`
-                aws s3 cp $object restore.txt
-                sudo -u debian-spamd sa-learn --restore restore.txt
-                rm -f restore.txt
+                aws s3 cp $object .
+                archive=`ls sa-learn-backup*.tar.xz 2>/dev/null | sort -V | tail -n 1`
+                tar --force-local -xf $archive 2>/dev/null || true
+                txtfile=`ls sa-learn-backup*.txt 2>/dev/null | sort -V | tail -n 1`
+                sudo -u debian-spamd sa-learn --restore $txtfile
+                rm -f $txtfile $archive
           commands:
             01_create_bayes_db:
               command: mkdir /var/spamassassin && chown debian-spamd /var/spamassassin && chgrp debian-spamd /var/spamassassin && chmod 777 /var/spamassassin
