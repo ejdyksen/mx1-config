@@ -224,7 +224,7 @@ Resources:
 
 
     Properties:
-      ImageId: ami-fcc19b99
+      ImageId: ami-38f5d15d
       InstanceType: t2.nano
       AvailabilityZone: us-east-2a
       SecurityGroups:
