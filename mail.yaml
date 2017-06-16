@@ -166,7 +166,7 @@ Resources:
                 ###########################################################################
 
                 use_bayes 1
-                required_score 3.0
+                required_score 2.3
 
                 bayes_auto_learn 1
 
