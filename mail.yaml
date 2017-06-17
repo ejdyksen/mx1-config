@@ -212,7 +212,7 @@ Resources:
             03_setup_content_filter:
               command: postconf -P "smtp/inet/content_filter=spamf"
             04_setup_spamfilter_transport:
-              command: echo -n "spamf     unix  -       n       n       -       -       pipe\n  user=debian-spamd argv=/usr/bin/spamc -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}" >> /etc/postfix/master.cf
+              command: echo -n "spamf     unix  -       n       n       -       -       pipe\n  user=debian-spamd argv=/usr/bin/spamc -d 127.0.0.1 -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}" >> /etc/postfix/master.cf
             05_enable_spamassassin:
               command: sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/spamassassin
             06_enable_spamassassin_cron:
