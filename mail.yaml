@@ -61,9 +61,6 @@ Resources:
           files:
             /etc/network/interfaces.d/60-default-with-ipv6.cfg:
               content: iface eth0 inet6 dhcp
-          commands:
-            dhclient:
-              command: dhclient -6
 
 
         hostname:
@@ -206,19 +203,28 @@ Resources:
           commands:
             01_create_bayes_db:
               command: mkdir /var/spamassassin && chown debian-spamd /var/spamassassin && chgrp debian-spamd /var/spamassassin && chmod 777 /var/spamassassin
+              test: "! [ -d /var/spamassassin ]"
             02_restore_from_backup:
               command: /usr/local/bin/restore-spamassassin
+              test: "! [ -d /var/spamassassin/bayes_db ]"
               cwd: /tmp
             03_setup_content_filter:
               command: postconf -P "smtp/inet/content_filter=spamf"
+              test: "! [ -f /var/spamassassin/flag ]"
             04_setup_spamfilter_transport:
-              command: echo -n "spamf     unix  -       n       n       -       -       pipe\n  user=debian-spamd argv=/usr/bin/spamc -d 127.0.0.1 -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}" >> /etc/postfix/master.cf
+              command: echo -n "spamf     unix  -       n       n       -       -       pipe\n  user=debian-spamd argv=/usr/bin/spamc -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}" >> /etc/postfix/master.cf
+              test: "! [ -f /var/spamassassin/flag ]"
             05_enable_spamassassin:
               command: sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/spamassassin
+              test: "! [ -f /var/spamassassin/flag ]"
             06_enable_spamassassin_cron:
               command: sed -i 's/CRON=0/CRON=1/g' /etc/default/spamassassin
+              test: "! [ -f /var/spamassassin/flag ]"
             07_reload_postfix:
               command: postfix reload
+              test: "! [ -f /var/spamassassin/flag ]"
+            08_touch_flag:
+              command: touch /var/spamassassin/flag
           services:
             sysvinit:
               spamassassin:
@@ -257,8 +263,6 @@ Resources:
 
           /usr/local/bin/cfn-signal --exit-code $? --resource MailServer --stack ${AWS::StackName} --resource MailServer --region ${AWS::Region}
 
-          apt-get -y upgrade
-          apt-get -y dist-upgrade
           reboot
 
     CreationPolicy:
