@@ -21,11 +21,11 @@ Resources:
             /home/ubuntu/.aws/config:
               content: |
                 [default]
-                region = us-east-2
+                region=${AWS::Region}
             /root/.aws/config:
               content: |
                 [default]
-                region = us-east-2
+                region=${AWS::Region}
             /etc/cfn/cfn-hup.conf:
               content: !Sub |
                 [main]
