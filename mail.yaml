@@ -312,6 +312,42 @@ Resources:
                   - "arn:aws:s3:::ejdyksen-spam"
                   - "arn:aws:s3:::ejdyksen-spam/*"
 
+  SystemRecoveryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Trigger a recovery when system status check fails for 2 consecutive minutes.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: '60'
+      EvaluationPeriods: '2'
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: '0'
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+        - !Sub "arn:aws:sns:us-east-2:${AWS::AccountId}:mx1-alarm"
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref MailServer
+
+  InstanceRecoveryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Trigger a reboot when instance status check fails for 2 consecutive minutes.
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: '60'
+      EvaluationPeriods: '2'
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: '0'
+      AlarmActions:
+        - !Sub "arn:aws:swf:us-east-2:${AWS::AccountId}:action/actions/AWS_EC2.InstanceId.Reboot/1.0"
+        - !Sub "arn:aws:sns:us-east-2:${AWS::AccountId}:mx1-alarm"
+      Dimensions:
+      - Name: InstanceId
+        Value: !Ref MailServer
+
   MailSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
