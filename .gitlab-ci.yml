@@ -2,4 +2,4 @@ image: mesosphere/aws-cli
 
 test:
   script:
-    - aws cloudformation validate-template --template-body file://mail.yaml
+    - cloudformation validate-template --template-body file://mail.yaml
