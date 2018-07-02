@@ -1,5 +1,9 @@
-image: mesosphere/aws-cli
+image: garland/aws-cli-docker
+
+variables:
+  AWS_DEFAULT_REGION: us-east-2
+  AWS_ACCESS_KEY_ID: AKIAJLFOAUGAHNAKXN7A
 
 test:
   script:
-    - cloudformation validate-template --template-body file://mail.yaml
+    - aws cloudformation validate-template --template-body file://mail.yaml
