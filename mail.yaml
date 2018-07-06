@@ -77,6 +77,7 @@ Resources:
             apt:
               zsh: []
               htop: []
+              mosh: []
           commands:
             01_zprezto:
               command: sudo -u ubuntu git clone --recursive git://github.com/ejdyksen/prezto.git /home/ubuntu/.zprezto
