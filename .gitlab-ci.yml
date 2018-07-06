@@ -4,6 +4,17 @@ variables:
   AWS_DEFAULT_REGION: us-east-2
   AWS_ACCESS_KEY_ID: AKIAJLFOAUGAHNAKXN7A
 
+stages:
+  - test
+  - deploy
+
 test:
+  stage: test
   script:
     - aws cloudformation validate-template --template-body file://mail.yaml
+
+deploy:
+  stage: deploy
+  script:
+    - aws cloudformation update-stack --stack-name mail-prod-A --capabilities CAPABILITY_IAM --template-body  file://mail.yaml
+  when: manual
