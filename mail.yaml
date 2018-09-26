@@ -19,11 +19,11 @@ Resources:
         configure_aws:
           files:
             /home/ubuntu/.aws/config:
-              content: |
+              content: !Sub |
                 [default]
                 region=${AWS::Region}
             /root/.aws/config:
-              content: |
+              content: !Sub |
                 [default]
                 region=${AWS::Region}
             /etc/cfn/cfn-hup.conf:
