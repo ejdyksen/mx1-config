@@ -236,7 +236,7 @@ Resources:
 
 
     Properties:
-      ImageId: ami-916f59f4
+      ImageId: ami-0f65671a86f061fcd
       InstanceType: t2.nano
       AvailabilityZone: us-east-2a
       SecurityGroups:
