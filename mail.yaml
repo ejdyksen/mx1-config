@@ -369,7 +369,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
-        CidrIpv6: 2601:405:4302:9940::/60
+        CidrIpv6: 2601:405:4a80:49f0::/60
       - IpProtocol: udp
         FromPort: 60000
         ToPort: 61000
