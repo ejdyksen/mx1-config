@@ -110,19 +110,19 @@ Resources:
               postfix: []
               telnet: []
           files:
-            /etc/postfix/transport:
-              content: |
-                dyksen.net          smtp:mail.dyksen.net:26
-                downstairslabs.com  smtp:mail.dyksen.net:26
             /etc/postfix/header_checks:
               content: |
                 /^X-Spam-Level: \*{6,}/ DISCARD
           commands:
             01_postfix_main:
-              command: postconf -e "myhostname = mx1.dyksen.net" "myorigin = \$mydomain" "inet_interfaces = all" "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128" "relay_domains = dyksen.net, downstairslabs.com" "relayhost = mail.dyksen.net:26" "mydestination = \$myhostname, mx1.dyksen.net" "header_checks = regexp:/etc/postfix/header_checks" "message_size_limit = 157286400"
-            02_postmap:
-              command: postmap /etc/postfix/transport
-            03_reload:
+              command: postconf -e "myhostname = mx1.dyksen.net" "myorigin = \$mydomain" "mydestination = \$myhostname, mx1.dyksen.net" "header_checks = regexp:/etc/postfix/header_checks" "message_size_limit = 157286400" "smtp_tls_security_level = may"
+            02_postfix_networks:
+              command: postconf -e "mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 73.145.150.118/32 [2601:405:4a80:49f0::0]/60"
+            03_postfix_domains:
+              command: postconf -e "relay_domains = dyksen.net, downstairslabs.com" "relay_transport = smtp:mail.dyksen.net:26"
+            04_postfix_port_26:
+              command: postconf -M 26/inet="26       inet  n       -       y       -       -       smtpd"
+            05_reload:
               command: postfix reload
           services:
             sysvinit:
@@ -386,3 +386,11 @@ Resources:
         FromPort: '25'
         ToPort: '25'
         CidrIpv6: ::/0
+      - IpProtocol: tcp
+        FromPort: '26'
+        ToPort: '26'
+        CidrIp: 73.145.150.118/32
+      - IpProtocol: tcp
+        FromPort: '26'
+        ToPort: '26'
+        CidrIpv6: 2601:405:4a80:49f0::/60
