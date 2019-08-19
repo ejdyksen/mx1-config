@@ -57,10 +57,35 @@ Resources:
             allow_reboot:
               command: echo -n "Unattended-Upgrade::Automatic-Reboot \"true\";" >> /etc/apt/apt.conf.d/50unattended-upgrades
 
+
         ipv6:
+          packages:
+            apt:
+              jq: []
           files:
-            /etc/network/interfaces.d/60-default-with-ipv6.cfg:
-              content: iface eth0 inet6 dhcp
+            /etc/cron.d/update-ipv6-addresses:
+              content: |
+                PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+
+                * * * * * root /usr/local/bin/update-ipv6-addresses.sh
+            /usr/local/bin/update-ipv6-addresses.sh:
+              mode: '000755'
+              content: |
+                #!/usr/bin/env bash
+                instance_id=`curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.instanceId'`
+                eni_id=`aws ec2 describe-instances --instance-ids $instance_id | jq -r '.Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId'`
+
+                CURRENT_ADDRESSES=`aws ec2 describe-instances --instance-ids $instance_id | jq -r '.Reservations[0].Instances[0].NetworkInterfaces[0].Ipv6Addresses | .[].Ipv6Address'`
+
+                for line in $CURRENT_ADDRESSES; do
+                  aws ec2 unassign-ipv6-addresses --network-interface-id $eni_id --ipv6-addresses $line
+                done
+
+                aws ec2 assign-ipv6-addresses --network-interface-id $eni_id --ipv6-addresses 2600:1f16:6e1:6500::12:1
+
+                if [ $? -eq 0 ]; then
+                  rm /etc/cron.d/update-ipv6-addresses
+                fi
 
 
         hostname:
@@ -242,8 +267,6 @@ Resources:
       SecurityGroups:
       - !Ref MailSecurityGroup
       IamInstanceProfile: !Ref MailServerInstanceProfile
-      Ipv6Addresses:
-      - Ipv6Address: 2600:1f16:6e1:6500::12:1
       KeyName: ejd
       Tags:
         -
@@ -253,7 +276,7 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash -ex
           apt-get update
-          apt-get -y install python-pip
+          DEBIAN_FRONTEND=noninteractive apt-get -y install python-pip
           pip install --upgrade pip
           sudo pip install awscli
           sudo pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
@@ -301,7 +324,7 @@ Resources:
       Path: '/'
       Policies:
         -
-          PolicyName: "root"
+          PolicyName: "s3-access"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -312,6 +335,18 @@ Resources:
                 Resource:
                   - "arn:aws:s3:::ejdyksen-spam"
                   - "arn:aws:s3:::ejdyksen-spam/*"
+        -
+          PolicyName: "ipv6-changes"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "ec2:DescribeInstances"
+                  - "ec2:AssignIpv6Addresses"
+                  - "ec2:UnassignIpv6Addresses"
+                Resource: "*"
 
   SystemRecoveryAlarm:
     Type: AWS::CloudWatch::Alarm
