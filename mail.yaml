@@ -1,4 +1,3 @@
----
 Description: A mail server setup
 Resources:
   MailServer:
