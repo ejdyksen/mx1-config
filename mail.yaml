@@ -213,14 +213,14 @@ Resources:
                 if [ $backup_size -gt 2000 ]
                 then
                   tar --force-local -cJf $filename.tar.xz $filename.txt
-                  aws s3 cp $filename.tar.xz s3://ejdyksen-spam/sa-backup/$filename.tar.xz --storage-class STANDARD_IA
+                  aws s3 cp $filename.tar.xz s3://mx1.dyksen.net/sa-backup/$filename.tar.xz --storage-class STANDARD_IA
                 fi
                 rm -f $filename
             /usr/local/bin/restore-spamassassin:
               mode: '000755'
               content: |
                 #!/usr/bin/env bash
-                object=s3://ejdyksen-spam/`aws s3api list-objects-v2 --bucket ejdyksen-spam --prefix 'sa-backup/' | jq -r '.Contents | max_by(.Key) | .Key'`
+                object=s3://mx1.dyksen.net/`aws s3api list-objects-v2 --bucket mx1.dyksen.net --prefix 'sa-backup/' | jq -r '.Contents | max_by(.Key) | .Key'`
                 aws s3 cp $object .
                 archive=`ls sa-learn-backup*.tar.xz 2>/dev/null | sort -V | tail -n 1`
                 tar --force-local -xf $archive 2>/dev/null || true
@@ -332,8 +332,8 @@ Resources:
                 Action:
                   - "s3:*"
                 Resource:
-                  - "arn:aws:s3:::ejdyksen-spam"
-                  - "arn:aws:s3:::ejdyksen-spam/*"
+                  - "arn:aws:s3:::mx1.dyksen.net"
+                  - "arn:aws:s3:::mx1.dyksen.net/*"
         -
           PolicyName: "ipv6-changes"
           PolicyDocument:
