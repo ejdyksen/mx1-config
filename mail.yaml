@@ -179,15 +179,6 @@ Resources:
             /etc/spamassassin/local.cf:
               mode: '000644'
               content: |
-                # This is the right place to customize your installation of SpamAssassin.
-                #
-                # See 'perldoc Mail::SpamAssassin::Conf' for details of what can be
-                # tweaked.
-                #
-                # Only a small subset of options are listed below
-                #
-                ###########################################################################
-
                 use_bayes 1
                 required_score 2.3
 
