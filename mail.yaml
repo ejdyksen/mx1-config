@@ -14,6 +14,7 @@ Resources:
           - dns
           - postfix
           - spamassassin
+          - opendkim
 
         configure_aws:
           files:
@@ -255,6 +256,70 @@ Resources:
           services:
             sysvinit:
               spamassassin:
+                enabled: true
+                ensureRunning: true
+
+        opendkim:
+          packages:
+            apt:
+              opendkim: []
+              opendkim-tools: []
+          files:
+            /etc/opendkim.conf:
+              content: |
+                UserID opendkim
+
+                Syslog yes
+
+                # Required to use local socket with MTAs that access the socket as a non-
+                # privileged user (e.g. Postfix)
+                UMask                   0002
+
+                # Signature mode and signature verification
+                Mode sv # not needed as this is the default
+
+                Socket                  local:/var/spool/postfix/var/run/opendkim/opendkim.sock
+
+                PidFile               /var/run/opendkim/opendkim.pid
+
+                KeyTable file:/etc/dkimkeys/keytable
+                SigningTable refile:/etc/dkimkeys/signingtable
+                InternalHosts refile:/etc/dkimkeys/trustedhosts
+            /etc/dkimkeys/keytable:
+              owner: opendkim
+              content: |
+                mx1-2019._domainkey.dyksen.net dyksen.net:mx1-2019:/etc/dkimkeys/mx1-2019.private
+            /etc/dkimkeys/signingtable:
+              owner: opendkim
+              content: |
+                # Domain example.com
+                *@dyksen.net mx1-2019._domainkey.dyksen.net
+                # You can specify multiple domains
+                # Example.net www._domainkey.example.net
+            /etc/dkimkeys/trustedhosts:
+              owner: opendkim
+              content: |
+                127.0.0.1
+                ::1
+                73.145.148.167
+                2601:405:4a80:5da::/64
+
+          commands:
+            01_postfix_permissions:
+              command: adduser postfix opendkim
+            02_restore_dkim_keys:
+              command: aws s3 sync s3://mx1.dyksen.net/dkimkeys /etc/dkimkeys && chgrp opendkim /etc/dkimkeys/* && chown opendkim /etc/dkimkeys/* && chmod go-rwx /etc/dkimkeys/* && touch /etc/dkimkeys/flag
+              test: "! [ -f /etc/dkimkeys/flag ]"
+            03_setup_postfix_sock:
+              command: mkdir -p $SOCKDIR  && chown opendkim. $SOCKDIR && chmod go-rwx $SOCKDIR && chmod g+x $SOCKDIR
+              test: "! [ -d /var/spool/postfix/var/run/opendkim ]"
+              env:
+                SOCKDIR: /var/spool/postfix/var/run/opendkim
+            04_postfix_dkim:
+              command: postconf -e "milter_default_action = accept" "milter_protocol = 6" "smtpd_milters = unix:/var/run/opendkim/opendkim.sock" "non_smtpd_milters = unix:/var/run/opendkim/opendkim.sock" && service postfix restart
+          services:
+            sysvinit:
+              opendkim:
                 enabled: true
                 ensureRunning: true
 
