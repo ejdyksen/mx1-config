@@ -444,22 +444,6 @@ Resources:
     Properties:
       GroupDescription: Enable SSH and SMTP
       SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
-        CidrIp: 73.145.148.167/32
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
-        CidrIp: 35.8.0.0/13
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
-        CidrIp: 35.20.0.0/14
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
-        CidrIpv6: 2601:405:4a80:5da::/64
       - IpProtocol: udp
         FromPort: 60000
         ToPort: 61000
@@ -476,11 +460,3 @@ Resources:
         FromPort: '25'
         ToPort: '25'
         CidrIpv6: ::/0
-      - IpProtocol: tcp
-        FromPort: '26'
-        ToPort: '26'
-        CidrIp: 73.145.148.167/32
-      - IpProtocol: tcp
-        FromPort: '26'
-        ToPort: '26'
-        CidrIpv6: 2601:405:4a80:5da::/64
